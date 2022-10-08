@@ -1,9 +1,13 @@
 package db
 
-import "github.com/Lerner17/gophermart/internal/db/postgres"
+import (
+	"context"
+
+	"github.com/Lerner17/gophermart/internal/db/postgres"
+)
 
 type DB interface {
-	RegisterUser(string, string) error
+	RegisterUser(context.Context, string, string) error
 }
 
 func GetDB() DB {
