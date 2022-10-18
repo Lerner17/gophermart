@@ -1,6 +1,6 @@
 package models
 
-type RegisterUser struct {
+type User struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }

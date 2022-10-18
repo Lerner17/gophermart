@@ -8,6 +8,7 @@ import (
 
 type DB interface {
 	RegisterUser(context.Context, string, string) error
+	LoginUser(string, string) error
 }
 
 func GetDB() DB {
