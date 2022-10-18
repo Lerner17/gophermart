@@ -8,10 +8,12 @@ import (
 	"net/http"
 
 	_ "github.com/Lerner17/gophermart/cmd/gophermart/docs"
+	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/db"
 	"github.com/Lerner17/gophermart/internal/handlers"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -79,7 +81,7 @@ func migragte(e *echo.Echo) {
 	}
 	defer db.Close()
 	{ // DB Migrations
-		const MigrationVersion = 1
+		const MigrationVersion = 2
 		mDriver, err := postgres.WithInstance(db, &postgres.Config{})
 		if err != nil {
 			panic(fmt.Errorf("could not instantiate db instance for migrations: %w", err))
@@ -113,8 +115,15 @@ func main() {
 	db := db.GetDB()
 
 	migragte(e) // Migrate migrations
-
+	authGroup := e.Group("")
+	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
+		Claims:                  &models.JwtCustomClaims{},
+		SigningKey:              []byte(auth.GetJWTSecret()),
+		TokenLookup:             "cookie:access-token",
+		ErrorHandlerWithContext: auth.JWTErrorChecker,
+	}))
 	e.POST("/api/user/register", handlers.Registration(db))
 	e.POST("/api/user/login", handlers.LoginHandler(db))
+	authGroup.POST("/api/user/orders", handlers.CreateOrderHandler(db))
 	e.Logger.Fatal(e.Start(":5000"))
 }

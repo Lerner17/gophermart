@@ -8,6 +8,7 @@ import (
 
 	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/helpers"
+	"github.com/Lerner17/gophermart/internal/models"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -41,23 +42,42 @@ func init() {
 	}
 }
 
-func (db Database) LoginUser(username, password string) error {
-	var p string
-	fmt.Println(username)
-	query := psql.Select("password").From("users").Where(sq.Eq{"username": username}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
+func (db Database) CreateOrder(ctx context.Context, order models.Order) error {
 
-	if err := query.QueryRow().Scan(&p); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return er.InvalidLoginOrPassword
-		}
-		return err
+	var stmt = psql.RunWith(db.cursor).Insert("orders").SetMap(map[string]interface{}{
+		"number":  order.Number,
+		"user_id": order.UserID,
+		"status":  order.Status,
+	})
+
+	if _, err := stmt.ExecContext(ctx); err != nil {
+		// var pgErr *pgconn.PgError
+		// if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		// 	return er.UserNameAlreadyExists
+		// }
+		fmt.Println(err)
+		return fmt.Errorf("could not insert order: %v", err)
 	}
-
-	if verefyPassword := helpers.ComparePasswords(p, []byte(password)); !verefyPassword {
-		return er.InvalidLoginOrPassword
-	}
-
 	return nil
+}
+
+func (db Database) LoginUser(username, password string) (int, error) {
+	var id int
+	var p string
+	query := psql.Select("id", "password").From("users").Where(sq.Eq{"username": username}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
+
+	if err := query.QueryRow().Scan(&id, &p); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return 0, er.InvalidLoginOrPassword
+		}
+		return 0, err
+	}
+	fmt.Println(id)
+	if verefyPassword := helpers.ComparePasswords(p, []byte(password)); !verefyPassword {
+		return 0, er.InvalidLoginOrPassword
+	}
+
+	return id, nil
 }
 
 func (db Database) RegisterUser(ctx context.Context, username, password string) error {

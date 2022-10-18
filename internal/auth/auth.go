@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
+	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/golang-jwt/jwt"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -21,6 +23,7 @@ func GetJWTSecret() string {
 }
 
 type Claims struct {
+	ID       int    `json:"id"`
 	Username string `json:"username"`
 	jwt.StandardClaims
 }
@@ -47,6 +50,7 @@ func GenerateTokensAndSetCookies(user *models.User, c echo.Context) error {
 func generateToken(user *models.User, expirationTime time.Time, secret []byte) (string, time.Time, error) {
 	// Create the JWT claims, which includes the username and expiry time.
 	claims := &Claims{
+		ID:       user.ID,
 		Username: user.Login,
 		StandardClaims: jwt.StandardClaims{
 			// In JWT, the expiry time is expressed as unix milliseconds.
@@ -80,8 +84,32 @@ func setTokenCookie(name, token string, expiration time.Time, c echo.Context) {
 func setUserCookie(user *models.User, expiration time.Time, c echo.Context) {
 	cookie := new(http.Cookie)
 	cookie.Name = "user"
-	cookie.Value = user.Username
+	cookie.Value = user.Login
 	cookie.Expires = expiration
 	cookie.Path = "/"
 	c.SetCookie(cookie)
+}
+
+var ErrUnauthorized = &er.HTTPError{
+	Code: 401,
+	Msg:  "unauthorized",
+}
+
+func JWTErrorChecker(err error, c echo.Context) error {
+	return ErrUnauthorized
+}
+
+func GetUserIdFromToken(tokenString string) (int, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &models.JwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(jwtSecretKey), nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	if claims, ok := token.Claims.(*models.JwtCustomClaims); ok && token.Valid {
+		return claims.ID, nil
+	} else {
+		return 0, fmt.Errorf("cannot parse jwt")
+	}
+
 }

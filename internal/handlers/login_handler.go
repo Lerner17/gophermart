@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
-	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
 )
 
 type DBLoginer interface {
-	LoginUser(string, string) error
+	LoginUser(string, string) (int, error)
 }
 
 var ErrInvalidCredentials = &er.HTTPError{
@@ -23,17 +23,23 @@ func LoginHandler(db DBLoginer) echo.HandlerFunc {
 	return func(c echo.Context) error {
 
 		user := &models.User{}
+		var userID int
 
 		if err := c.Bind(user); err != nil {
 			return fmt.Errorf("could not bind body: %v:", err)
 		}
-		if err := db.LoginUser(user.Login, user.Password); err != nil {
+		userID, err := db.LoginUser(user.Login, user.Password)
+		if err != nil {
 			if errors.Is(err, er.InvalidLoginOrPassword) {
-				return fmt.Errorf("could not bind body: %v: %w", err, ErrInvalidCredentials)
+				return fmt.Errorf("invalid login or password: %v: %w", err, ErrInvalidCredentials)
 			}
 			return err
 		}
-		helpers.WriteCookie(c, "auth", "foo123")
+		user.ID = userID
+		err = auth.GenerateTokensAndSetCookies(user, c)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	}
 }
