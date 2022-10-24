@@ -3,12 +3,14 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 
 	_ "github.com/Lerner17/gophermart/cmd/gophermart/docs"
 	"github.com/Lerner17/gophermart/internal/auth"
+	"github.com/Lerner17/gophermart/internal/config"
 	"github.com/Lerner17/gophermart/internal/db"
 	"github.com/Lerner17/gophermart/internal/handlers"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -22,6 +24,25 @@ import (
 
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
+
+func parsArgs(c *config.Config) {
+	serverAddressPtr := flag.String("a", "", "")
+	DatabaseDsnPtr := flag.String("d", "", "")
+	AccrualSystemAddressPtr := flag.String("r", "", "")
+	flag.Parse()
+
+	if *serverAddressPtr != "" {
+		c.ServerAddress = *serverAddressPtr
+	}
+
+	if *AccrualSystemAddressPtr != "" {
+		c.AccrualSystemAddress = *AccrualSystemAddressPtr
+	}
+
+	if *DatabaseDsnPtr != "" {
+		c.DatabaseDsn = *DatabaseDsnPtr
+	}
+}
 
 func customHTTPErrorHandler(err error, ctx echo.Context) {
 	var code = http.StatusInternalServerError
@@ -109,6 +130,9 @@ func migragte(e *echo.Echo) {
 }
 
 func main() {
+	cfg := config.Instance
+	parsArgs(cfg)
+	fmt.Println(cfg)
 	e := echo.New()
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.HTTPErrorHandler = customHTTPErrorHandler
@@ -125,5 +149,5 @@ func main() {
 	e.POST("/api/user/register", handlers.Registration(db))
 	e.POST("/api/user/login", handlers.LoginHandler(db))
 	authGroup.POST("/api/user/orders", handlers.CreateOrderHandler(db))
-	e.Logger.Fatal(e.Start(":5000"))
+	e.Logger.Fatal(e.Start(cfg.ServerAddress))
 }
