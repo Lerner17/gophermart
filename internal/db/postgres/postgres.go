@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Lerner17/gophermart/internal/config"
 	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -29,7 +30,8 @@ func New() *Database {
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func init() {
-	dsn := "postgres://shroten:shroten@localhost:5432/shroten"
+	// dsn := "postgres://shroten:shroten@localhost:5432/shroten"
+	dsn := config.Instance.DatabaseDsn
 	if dsn == "" {
 		panic("Cannot connect to database")
 	}
