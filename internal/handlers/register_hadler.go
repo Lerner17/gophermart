@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -14,6 +15,11 @@ import (
 
 type DBRegistrator interface {
 	RegisterUser(context.Context, string, string) error
+}
+
+var ErrUsernameAlreadyExists = &er.HTTPError{
+	Code: 409,
+	Msg:  "username already exists",
 }
 
 var ErrInvalidPassword = &er.HTTPError{
@@ -34,10 +40,10 @@ var ErrInvalidRequestBody = &er.HTTPError{
 func Registration(db DBRegistrator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
-		user := &models.RegisterUser{}
+		user := &models.User{}
 
 		if err := c.Bind(user); err != nil {
-			return fmt.Errorf("%v %w", err, ErrBindBody)
+			return fmt.Errorf("could not bind body: %v: %w", err, ErrBindBody)
 		}
 
 		if user.Login == "" || user.Password == "" {
@@ -49,6 +55,9 @@ func Registration(db DBRegistrator) echo.HandlerFunc {
 		}
 
 		if err := db.RegisterUser(ctx, user.Login, user.Password); err != nil {
+			if errors.Is(err, er.UserNameAlreadyExists) {
+				return ErrUsernameAlreadyExists
+			}
 			return fmt.Errorf("could not insert user into database: %w", err)
 		}
 

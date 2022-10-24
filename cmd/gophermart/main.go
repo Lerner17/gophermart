@@ -7,15 +7,20 @@ import (
 	"log"
 	"net/http"
 
+	_ "github.com/Lerner17/gophermart/cmd/gophermart/docs"
+	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/db"
 	"github.com/Lerner17/gophermart/internal/handlers"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5"
+
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 func customHTTPErrorHandler(err error, ctx echo.Context) {
@@ -69,17 +74,6 @@ func customHTTPErrorHandler(err error, ctx echo.Context) {
 	}
 }
 
-func main() {
-	e := echo.New()
-	e.HTTPErrorHandler = customHTTPErrorHandler
-	db := db.GetDB()
-
-	migragte(e) // Migrate migrations
-
-	e.POST("/api/user/register", handlers.Registration(db))
-	e.Logger.Fatal(e.Start(":5000"))
-}
-
 func migragte(e *echo.Echo) {
 	db, err := sql.Open("postgres", "postgres://shroten:shroten@localhost:5432/shroten?sslmode=disable")
 	if err != nil {
@@ -87,7 +81,7 @@ func migragte(e *echo.Echo) {
 	}
 	defer db.Close()
 	{ // DB Migrations
-		const MigrationVersion = 1
+		const MigrationVersion = 2
 		mDriver, err := postgres.WithInstance(db, &postgres.Config{})
 		if err != nil {
 			panic(fmt.Errorf("could not instantiate db instance for migrations: %w", err))
@@ -107,10 +101,29 @@ func migragte(e *echo.Echo) {
 			panic("detected dirty migration, please resolve it manually")
 		}
 		if MigrationVersion != ver {
-			// e.Logger.Infof("detected migration version missmatch current [%v] but need [%v]. Start migration...", ver, MigrationVersion)
 			if err := m.Migrate(MigrationVersion); err != nil {
 				panic(fmt.Errorf("could not apply migrations: %w", err))
 			}
 		}
 	}
+}
+
+func main() {
+	e := echo.New()
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
+	e.HTTPErrorHandler = customHTTPErrorHandler
+	db := db.GetDB()
+
+	migragte(e) // Migrate migrations
+	authGroup := e.Group("")
+	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
+		Claims:                  &models.JwtCustomClaims{},
+		SigningKey:              []byte(auth.GetJWTSecret()),
+		TokenLookup:             "cookie:access-token",
+		ErrorHandlerWithContext: auth.JWTErrorChecker,
+	}))
+	e.POST("/api/user/register", handlers.Registration(db))
+	e.POST("/api/user/login", handlers.LoginHandler(db))
+	authGroup.POST("/api/user/orders", handlers.CreateOrderHandler(db))
+	e.Logger.Fatal(e.Start(":5000"))
 }
