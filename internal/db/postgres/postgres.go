@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Lerner17/gophermart/internal/config"
 	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -30,8 +29,8 @@ func New() *Database {
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func init() {
-	// dsn := "postgres://shroten:shroten@localhost:5432/shroten"
-	dsn := config.Instance.DatabaseDsn
+	dsn := "postgres://shroten:shroten@localhost:5432/shroten"
+	// dsn := config.Instance.DatabaseDsn
 	if dsn == "" {
 		panic("Cannot connect to database")
 	}
@@ -53,10 +52,14 @@ func (db Database) CreateOrder(ctx context.Context, order models.Order) error {
 	})
 
 	if _, err := stmt.ExecContext(ctx); err != nil {
-		// var pgErr *pgconn.PgError
-		// if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-		// 	return er.UserNameAlreadyExists
-		// }
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			err := db.checkOrder(ctx, order.Number, int64(order.UserID))
+			if err != nil {
+				return err
+			}
+			return er.OrderNumberAlreadyExists
+		}
 		fmt.Println(err)
 		return fmt.Errorf("could not insert order: %v", err)
 	}
@@ -98,6 +101,26 @@ func (db Database) RegisterUser(ctx context.Context, username, password string) 
 			return er.UserNameAlreadyExists
 		}
 		return fmt.Errorf("could not insert user: %v", err)
+	}
+	return nil
+}
+
+func (db Database) checkOrder(ctx context.Context, orderNumber int64, userID int64) error {
+	var uid int64
+
+	query := psql.Select("user_id").From("orders").Where(sq.Eq{"number": orderNumber}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
+
+	if err := query.QueryRow().Scan(&uid); err != nil {
+		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		// 	return 0, er.InvalidLoginOrPassword
+		// }
+		return err
+	}
+
+	if userID == uid {
+		return er.OrderWasCreatedBySelf
+	} else {
+		return er.OrderWasCreatedByAnotherUser
 	}
 	return nil
 }

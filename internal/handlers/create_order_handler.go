@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -21,6 +22,16 @@ var ErrInvalidOrderNumber = &er.HTTPError{
 var ErrInvalidRequestFormat = &er.HTTPError{
 	Code: 400,
 	Msg:  "invalid request format",
+}
+
+var ErrOrderAlreadyExists = &er.HTTPError{
+	Code: 200,
+	Msg:  "order already exists",
+}
+
+var ErrOrderAlreadyExistsByAnotherUser = &er.HTTPError{
+	Code: 409,
+	Msg:  "order already exists by another user",
 }
 
 type DBOrderCreator interface {
@@ -62,7 +73,16 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 
 		ctx := c.Request().Context()
 		if err := db.CreateOrder(ctx, order); err != nil {
-
+			if err != nil {
+				if errors.Is(err, er.OrderWasCreatedByAnotherUser) {
+					return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
+				}
+				if errors.Is(err, er.OrderWasCreatedBySelf) {
+					return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
+				}
+				return err
+			}
+			return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
 
 		return nil
