@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Lerner17/gophermart/internal/config"
 	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -23,14 +24,7 @@ type Database struct {
 }
 
 func New() *Database {
-	return instance
-}
-
-var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-
-func init() {
-	dsn := "postgres://shroten:shroten@localhost:5432/shroten"
-	// dsn := config.Instance.DatabaseDsn
+	dsn := config.Instance.DatabaseDsn
 	if dsn == "" {
 		panic("Cannot connect to database")
 	}
@@ -41,7 +35,10 @@ func init() {
 	instance = &Database{
 		cursor: cursor,
 	}
+	return instance
 }
+
+var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (db Database) CreateOrder(ctx context.Context, order models.Order) error {
 
