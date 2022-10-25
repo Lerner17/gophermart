@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
-	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
 
 	"github.com/labstack/echo/v4"
@@ -50,15 +50,19 @@ func Registration(db DBRegistrator) echo.HandlerFunc {
 			return ErrInvalidRequestBody
 		}
 
-		if err := helpers.ValidatePassword(user.Password); err != nil {
-			return fmt.Errorf("invalid password provided for registration: %w", ErrInvalidPassword)
-		}
+		// if err := helpers.ValidatePassword(user.Password); err != nil {
+		// 	return fmt.Errorf("invalid password provided for registration: %w", ErrInvalidPassword)
+		// }
 
 		if err := db.RegisterUser(ctx, user.Login, user.Password); err != nil {
 			if errors.Is(err, er.UserNameAlreadyExists) {
 				return ErrUsernameAlreadyExists
 			}
 			return fmt.Errorf("could not insert user into database: %w", err)
+		}
+
+		if err := auth.GenerateTokensAndSetCookies(user, c); err != nil {
+			return err
 		}
 
 		return c.JSON(http.StatusOK, user)
