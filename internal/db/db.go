@@ -10,7 +10,12 @@ import (
 type DB interface {
 	RegisterUser(context.Context, string, string) error
 	LoginUser(string, string) (int, error)
+
 	CreateOrder(context.Context, models.Order) error
+	GetOrders(context.Context, int) ([]models.Order, error)
+	GetUserBalance(context.Context, int) (models.Balance, error)
+
+	CreateTransaction(context.Context, int, string, int) error
 }
 
 func GetDB() DB {

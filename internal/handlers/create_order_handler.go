@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 
 	"github.com/Lerner17/gophermart/internal/auth"
@@ -13,11 +14,6 @@ import (
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
 )
-
-var ErrInvalidOrderNumber = &er.HTTPError{
-	Code: 422,
-	Msg:  "incorrect order number",
-}
 
 var ErrInvalidRequestFormat = &er.HTTPError{
 	Code: 400,
@@ -84,7 +80,6 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 			}
 			return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
-
-		return nil
+		return c.String(http.StatusAccepted, "")
 	}
 }
