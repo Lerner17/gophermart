@@ -41,17 +41,19 @@ func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
 
 		withderaw := &models.Withdraw{}
 
-		orderNumber, err := strconv.ParseInt(string(withderaw.Order), 10, 64)
-		if err != nil || !helpers.ValidLuhn(int(orderNumber)) {
-			return fmt.Errorf("invalid order number: %v: %w", err, ErrInvalidOrderNumber)
-		}
-
 		if err := c.Bind(withderaw); err != nil {
 			return fmt.Errorf("could not bind body: %v: %w", err, ErrBindBody)
 		}
 
+		orderNumber, err := strconv.ParseInt(string(withderaw.Order), 10, 64)
+		fmt.Println(orderNumber)
+		if err != nil || !helpers.ValidLuhn(int(orderNumber)) {
+			fmt.Println(err)
+			return fmt.Errorf("invalid order number: %v: %w", err, ErrInvalidOrderNumber)
+		}
 		fmt.Println(withderaw)
 		if err := db.CreateTransaction(c.Request().Context(), userID, withderaw.Order, withderaw.Sum); err != nil {
+			fmt.Println(err)
 			return fmt.Errorf("could not create withdreaw: %v: %w", err, ErrBalanceTooLow)
 		}
 		return nil

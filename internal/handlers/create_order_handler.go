@@ -10,6 +10,7 @@ import (
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
+	"github.com/Lerner17/gophermart/internal/gateway"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
@@ -30,8 +31,14 @@ var ErrOrderAlreadyExistsByAnotherUser = &er.HTTPError{
 	Msg:  "order already exists by another user",
 }
 
+// var ErrInvalidOrderNumber = &er.HTTPError{
+// 	Code: 422,
+// 	Msg:  "incorrect order number",
+// }
+
 type DBOrderCreator interface {
-	CreateOrder(context.Context, models.Order) error
+	CreateOrder(context.Context, models.Order) (int, error)
+	UpdateOrderState(context.Context, int, string, int, float64) error
 }
 
 func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
@@ -63,12 +70,13 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 
 		var order = models.Order{
 			UserID: userID,
-			Number: orderNumber,
+			Number: string(data),
 			Status: "NEW",
 		}
 
 		ctx := c.Request().Context()
-		if err := db.CreateOrder(ctx, order); err != nil {
+		id, err := db.CreateOrder(ctx, order)
+		if err != nil {
 			if err != nil {
 				if errors.Is(err, er.OrderWasCreatedByAnotherUser) {
 					return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
@@ -80,6 +88,8 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 			}
 			return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
+		fmt.Println(id)
+		go gateway.CalculateBonuce(db, id, order.Number, userID)
 		return c.String(http.StatusAccepted, "")
 	}
 }

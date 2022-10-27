@@ -41,27 +41,30 @@ func New() *Database {
 
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-func (db Database) CreateOrder(ctx context.Context, order models.Order) error {
+func (db Database) CreateOrder(ctx context.Context, order models.Order) (int, error) {
+
+	var id int
 
 	var stmt = psql.RunWith(db.cursor).Insert("orders").SetMap(map[string]interface{}{
 		"number":  order.Number,
 		"user_id": order.UserID,
 		"status":  order.Status,
-	})
+	}).Suffix("RETURNING \"id\"").RunWith(db.cursor)
 
-	if _, err := stmt.ExecContext(ctx); err != nil {
+	err := stmt.QueryRow().Scan(&id)
+
+	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			err := db.checkOrder(ctx, order.Number, int64(order.UserID))
 			if err != nil {
-				return err
+				return id, err
 			}
-			return er.OrderNumberAlreadyExists
+			return id, er.OrderNumberAlreadyExists
 		}
-		fmt.Println(err)
-		return fmt.Errorf("could not insert order: %v", err)
+		return id, fmt.Errorf("could not insert order: %v", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (db Database) LoginUser(username, password string) (int, error) {
@@ -106,7 +109,26 @@ func (db Database) RegisterUser(ctx context.Context, username, password string) 
 func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balance, error) {
 	var balance = models.Balance{}
 
-	_ = psql.Select("sum(amount), ").From("transactions").Where(sq.Eq{"user_id": userID}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
+	query := `
+		select
+			sum(amount) as balance,
+			(
+			select
+				sum(amount)
+			from
+				transactions t2
+			where
+				t2.amount > 0
+				and user_id = $1) as withdrawn
+		from
+			transactions t
+		where
+			user_id = $1
+	`
+	err := db.cursor.QueryRowContext(ctx, query).Scan(balance)
+	if err != nil {
+		return balance, err
+	}
 
 	return balance, nil
 }
@@ -148,13 +170,17 @@ func (db Database) checkUserBalance(userID int, amount int) error {
 	return nil
 }
 
+func (db Database) GetWithdraws(ctx context.Context, userID int) error {
+	return nil
+}
+
 func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount int) error {
 
 	orderNumber, err := strconv.ParseInt(string(orderNum), 10, 64)
 
-	if err = db.checkUserBalance(userID, amount); err != nil {
-		return err
-	}
+	// if err = db.checkUserBalance(userID, amount); err != nil {
+	// 	return err
+	// }
 	orderID, err := db.getOrderID(userID, orderNumber)
 
 	if err != nil {
@@ -177,7 +203,12 @@ func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum s
 func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, error) {
 
 	orders := make([]models.Order, 0)
-	query := psql.Select("number", "status", "accrual", "uploaded_at").From("orders").Where(sq.Eq{"user_id": userID}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
+	query := psql.Select("number", "status", "amount as accrual", "uploaded_at").
+		From("orders o").
+		Where(sq.Eq{"o.user_id": userID}).
+		LeftJoin("transactions t on o.id = t.order_id").
+		RunWith(db.cursor).
+		PlaceholderFormat(sq.Dollar)
 
 	rows, err := query.QueryContext(ctx)
 	if err != nil {
@@ -192,11 +223,14 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 	defer rows.Close()
 	for rows.Next() {
 		var order models.Order
+		fmt.Println(order)
 		// var orderTime string
 		err = rows.Scan(&order.Number, &order.Status, &order.Accrual, &order.UploadedAt)
 		if err != nil {
 			return orders, err
 		}
+
+		fmt.Println(order)
 
 		// order.UploadedAt, err = time.Parse("2006-01-02T15:04:05.000Z", orderTime)
 		if err != nil {
@@ -208,7 +242,30 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 	return orders, nil
 }
 
-func (db Database) checkOrder(ctx context.Context, orderNumber int64, userID int64) error {
+func (db Database) UpdateOrderState(ctx context.Context, orderID int, orderStatus string, userID int, amount float64) error {
+	tx, err := db.cursor.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, "update orders o set status=$1 where o.number = $2", orderStatus, orderID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, "insert into transactions (user_id, order_id, amount) values ($1, $2, $3)", userID, orderID, amount)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db Database) checkOrder(ctx context.Context, orderNumber string, userID int64) error {
 	var uid int64
 
 	query := psql.Select("user_id").From("orders").Where(sq.Eq{"number": orderNumber}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)

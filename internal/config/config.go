@@ -8,9 +8,9 @@ import (
 )
 
 type Config struct {
-	ServerAddress        string `env:"ADDRESS" envDefault:"127.0.0.1:8080"`
+	ServerAddress        string `env:"ADDRESS" envDefault:"127.0.0.1:5000"`
 	DatabaseDsn          string `env:"DATABASE_URI"`
-	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"127.0.0.1:8088"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"127.0.0.1:8080"`
 }
 
 var Instance *Config

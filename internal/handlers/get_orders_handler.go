@@ -31,8 +31,8 @@ func GetOrdersHandler(db OrdesGetter) echo.HandlerFunc {
 			return err
 		}
 		if len(orders) == 0 {
-			return c.JSON(http.StatusNoContent, orders)
+			return c.JSON(204, orders)
 		}
-		return c.JSON(http.StatusAccepted, orders)
+		return c.JSON(http.StatusOK, orders)
 	}
 }
