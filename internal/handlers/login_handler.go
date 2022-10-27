@@ -26,7 +26,7 @@ func LoginHandler(db DBLoginer) echo.HandlerFunc {
 		var userID int
 
 		if err := c.Bind(user); err != nil {
-			return fmt.Errorf("could not bind body: %v:", err)
+			return fmt.Errorf("could not bind body: %v", err)
 		}
 		userID, err := db.LoginUser(user.Login, user.Password)
 		if err != nil {

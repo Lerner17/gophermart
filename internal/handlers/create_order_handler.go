@@ -77,16 +77,14 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id, err := db.CreateOrder(ctx, order)
 		if err != nil {
-			if err != nil {
-				if errors.Is(err, er.ErrOrderWasCreatedByAnotherUser) {
-					return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
-				}
-				if errors.Is(err, er.ErrOrderWasCreatedBySelf) {
-					return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
-				}
-				return err
+			if errors.Is(err, er.ErrOrderWasCreatedByAnotherUser) {
+				return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
 			}
-			return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
+			if errors.Is(err, er.ErrOrderWasCreatedBySelf) {
+				return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
+			}
+			return err
+			// return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
 		fmt.Println(id)
 		go gateway.CalculateBonuce(db, id, order.Number, userID)
