@@ -8,16 +8,12 @@ import (
 )
 
 type Config struct {
-	ServerAddress        string `env:"RUN_ADDRESS" envDefault:"127.0.0.1:8082"`
+	ServerAddress        string `env:"RUN_ADDRESS"`
 	DatabaseDsn          string `env:"DATABASE_URI"`
-	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"127.0.0.1:8081"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 }
 
 var Instance *Config
-
-func (c Config) GetDatabaseURI() string {
-	return fmt.Sprintf("postgres://%s", c.DatabaseDsn)
-}
 
 func init() {
 	log.Println("Load config...")
