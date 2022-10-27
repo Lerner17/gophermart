@@ -99,7 +99,7 @@ func JWTErrorChecker(err error, c echo.Context) error {
 	return ErrUnauthorized
 }
 
-func GetUserIdFromToken(tokenString string) (int, error) {
+func GetUserIDFromToken(tokenString string) (int, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &models.JwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(jwtSecretKey), nil
 	})

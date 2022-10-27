@@ -30,7 +30,7 @@ func LoginHandler(db DBLoginer) echo.HandlerFunc {
 		}
 		userID, err := db.LoginUser(user.Login, user.Password)
 		if err != nil {
-			if errors.Is(err, er.InvalidLoginOrPassword) {
+			if errors.Is(err, er.ErrInvalidLoginOrPassword) {
 				return fmt.Errorf("invalid login or password: %v: %w", err, ErrInvalidCredentials)
 			}
 			return err

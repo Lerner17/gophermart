@@ -33,5 +33,5 @@ func ValidatePassword(password string) error {
 	if hasMinLen && hasUpper && hasLower && hasNumber && hasSpecial {
 		return nil
 	}
-	return er.InvalidPasswordPattern
+	return er.ErrInvalidPasswordPattern
 }

@@ -60,7 +60,7 @@ func (db Database) CreateOrder(ctx context.Context, order models.Order) (int, er
 			if err != nil {
 				return id, err
 			}
-			return id, er.OrderNumberAlreadyExists
+			return id, er.ErrOrderNumberAlreadyExists
 		}
 		return id, fmt.Errorf("could not insert order: %v", err)
 	}
@@ -74,13 +74,13 @@ func (db Database) LoginUser(username, password string) (int, error) {
 
 	if err := query.QueryRow().Scan(&id, &p); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return 0, er.InvalidLoginOrPassword
+			return 0, er.ErrInvalidLoginOrPassword
 		}
 		return 0, err
 	}
 	fmt.Println(id)
 	if verefyPassword := helpers.ComparePasswords(p, []byte(password)); !verefyPassword {
-		return 0, er.InvalidLoginOrPassword
+		return 0, er.ErrInvalidLoginOrPassword
 	}
 
 	return id, nil
@@ -99,7 +99,7 @@ func (db Database) RegisterUser(ctx context.Context, username, password string) 
 	if _, err := stmt.ExecContext(ctx); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return er.UserNameAlreadyExists
+			return er.ErrUserNameAlreadyExists
 		}
 		return fmt.Errorf("could not insert user: %v", err)
 	}
@@ -141,7 +141,7 @@ func (db Database) getOrderID(userID int, orderNumber int64) (int, error) {
 	}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
 	if err := query.QueryRow().Scan(&id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return 0, er.CannotFindOrderByNumber
+			return 0, er.ErrCannotFindOrderByNumber
 		}
 		return id, err
 	}
@@ -159,7 +159,7 @@ func (db Database) checkUserBalance(userID int, amount int) error {
 
 	if err := query.QueryRow().Scan(&totalBalance); err != nil {
 		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return , er.CannotFindOrderByNumber TODO:
+		// 	return , er.ErrCannotFindOrderByNumber TODO:
 		// }
 		return err
 	}
@@ -177,6 +177,10 @@ func (db Database) GetWithdraws(ctx context.Context, userID int) error {
 func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount int) error {
 
 	orderNumber, err := strconv.ParseInt(string(orderNum), 10, 64)
+
+	if err != nil {
+		return err
+	}
 
 	// if err = db.checkUserBalance(userID, amount); err != nil {
 	// 	return err
@@ -217,7 +221,7 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 
 	if rows.Err() == nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return orders, er.OrdersNotFound
+			return orders, er.ErrOrdersNotFound
 		}
 	}
 	defer rows.Close()
@@ -226,13 +230,6 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 		fmt.Println(order)
 		// var orderTime string
 		err = rows.Scan(&order.Number, &order.Status, &order.Accrual, &order.UploadedAt)
-		if err != nil {
-			return orders, err
-		}
-
-		fmt.Println(order)
-
-		// order.UploadedAt, err = time.Parse("2006-01-02T15:04:05.000Z", orderTime)
 		if err != nil {
 			return orders, err
 		}
@@ -272,14 +269,14 @@ func (db Database) checkOrder(ctx context.Context, orderNumber string, userID in
 
 	if err := query.QueryRow().Scan(&uid); err != nil {
 		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return 0, er.InvalidLoginOrPassword
+		// 	return 0, er.ErrInvalidLoginOrPassword
 		// }
 		return err
 	}
 
 	if userID == uid {
-		return er.OrderWasCreatedBySelf
+		return er.ErrOrderWasCreatedBySelf
 	} else {
-		return er.OrderWasCreatedByAnotherUser
+		return er.ErrOrderWasCreatedByAnotherUser
 	}
 }

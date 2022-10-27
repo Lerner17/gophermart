@@ -34,7 +34,7 @@ func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
 			return err
 		}
 
-		userID, err := auth.GetUserIdFromToken(token.Value)
+		userID, err := auth.GetUserIDFromToken(token.Value)
 		if err != nil {
 			return err
 		}

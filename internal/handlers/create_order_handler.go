@@ -58,7 +58,7 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 			return err
 		}
 
-		userID, err := auth.GetUserIdFromToken(token.Value)
+		userID, err := auth.GetUserIDFromToken(token.Value)
 		if err != nil {
 			return err
 		}
@@ -78,10 +78,10 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 		id, err := db.CreateOrder(ctx, order)
 		if err != nil {
 			if err != nil {
-				if errors.Is(err, er.OrderWasCreatedByAnotherUser) {
+				if errors.Is(err, er.ErrOrderWasCreatedByAnotherUser) {
 					return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
 				}
-				if errors.Is(err, er.OrderWasCreatedBySelf) {
+				if errors.Is(err, er.ErrOrderWasCreatedBySelf) {
 					return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
 				}
 				return err
