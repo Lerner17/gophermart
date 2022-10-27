@@ -25,7 +25,7 @@ type Database struct {
 }
 
 func New() *Database {
-	dsn := config.Instance.DatabaseDsn
+	dsn := config.Instance.GetDatabaseURI()
 	if dsn == "" {
 		panic("Cannot connect to database")
 	}

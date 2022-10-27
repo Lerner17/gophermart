@@ -15,6 +15,10 @@ type Config struct {
 
 var Instance *Config
 
+func (c Config) GetDatabaseURI() string {
+	return fmt.Sprintf("postgres://%s", c.DatabaseDsn)
+}
+
 func init() {
 	log.Println("Load config...")
 	log.Println("Successfully load config from env variables")
