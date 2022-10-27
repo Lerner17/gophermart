@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,22 +25,22 @@ import (
 )
 
 func parsArgs(c *config.Config) {
-	serverAddressPtr := flag.String("a", "", "")
-	DatabaseDsnPtr := flag.String("d", "", "")
-	AccrualSystemAddressPtr := flag.String("r", "", "")
-	flag.Parse()
+	// serverAddressPtr := flag.String("a", "", "")
+	// DatabaseDsnPtr := flag.String("d", "", "")
+	// AccrualSystemAddressPtr := flag.String("r", "", "")
+	// flag.Parse()
 
-	if *serverAddressPtr != "" {
-		c.ServerAddress = *serverAddressPtr
-	}
+	// if *serverAddressPtr != "" {
+	// 	c.ServerAddress = *serverAddressPtr
+	// }
 
-	if *AccrualSystemAddressPtr != "" {
-		c.AccrualSystemAddress = *AccrualSystemAddressPtr
-	}
+	// if *AccrualSystemAddressPtr != "" {
+	// 	c.AccrualSystemAddress = *AccrualSystemAddressPtr
+	// }
 
-	if *DatabaseDsnPtr != "" {
-		c.DatabaseDsn = *DatabaseDsnPtr
-	}
+	// if *DatabaseDsnPtr != "" {
+	// 	c.DatabaseDsn = *DatabaseDsnPtr
+	// }
 }
 
 func customHTTPErrorHandler(err error, ctx echo.Context) {
