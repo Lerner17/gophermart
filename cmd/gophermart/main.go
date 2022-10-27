@@ -102,7 +102,7 @@ func migragte(e *echo.Echo) {
 	}
 	defer db.Close()
 	{ // DB Migrations
-		const MigrationVersion = 2
+		const MigrationVersion = 3
 		mDriver, err := postgres.WithInstance(db, &postgres.Config{})
 		if err != nil {
 			panic(fmt.Errorf("could not instantiate db instance for migrations: %w", err))
@@ -148,6 +148,14 @@ func main() {
 	}))
 	e.POST("/api/user/register", handlers.Registration(db))
 	e.POST("/api/user/login", handlers.LoginHandler(db))
+
 	authGroup.POST("/api/user/orders", handlers.CreateOrderHandler(db))
+	authGroup.GET("/api/user/orders", handlers.GetOrdersHandler(db))
+
+	authGroup.GET("/api/user/balance", handlers.BalanceHandler(db))
+
+	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
+	authGroup.GET("/api/user/balance/withdraw", handlers.GetWithdrawHandler(db))
+
 	e.Logger.Fatal(e.Start(cfg.ServerAddress))
 }
