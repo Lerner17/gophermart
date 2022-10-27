@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/Lerner17/gophermart/internal/auth"
@@ -27,6 +28,7 @@ func BalanceHandler(db BalanceGetter) echo.HandlerFunc {
 		}
 
 		balance, err := db.GetUserBalance(c.Request().Context(), userID)
+		fmt.Println(balance)
 
 		if err != nil {
 			return err

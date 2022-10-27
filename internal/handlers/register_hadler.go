@@ -14,7 +14,7 @@ import (
 )
 
 type DBRegistrator interface {
-	RegisterUser(context.Context, string, string) error
+	RegisterUser(context.Context, string, string) (int, error)
 }
 
 var ErrErrUserNameAlreadyExists = &er.HTTPError{
@@ -54,7 +54,9 @@ func Registration(db DBRegistrator) echo.HandlerFunc {
 		// 	return fmt.Errorf("invalid password provided for registration: %w", ErrInvalidPassword)
 		// }
 
-		if err := db.RegisterUser(ctx, user.Login, user.Password); err != nil {
+		userID, err := db.RegisterUser(ctx, user.Login, user.Password)
+		user.ID = userID
+		if err != nil {
 			if errors.Is(err, er.ErrUserNameAlreadyExists) {
 				return ErrErrUserNameAlreadyExists
 			}

@@ -49,7 +49,7 @@ func (db Database) CreateOrder(ctx context.Context, order models.Order) (int, er
 		"number":  order.Number,
 		"user_id": order.UserID,
 		"status":  order.Status,
-	}).Suffix("RETURNING \"id\"").RunWith(db.cursor)
+	}).Suffix("RETURNING \"id\"")
 
 	err := stmt.QueryRow().Scan(&id)
 
@@ -86,24 +86,27 @@ func (db Database) LoginUser(username, password string) (int, error) {
 	return id, nil
 }
 
-func (db Database) RegisterUser(ctx context.Context, username, password string) error {
+func (db Database) RegisterUser(ctx context.Context, username, password string) (int, error) {
+	var id int
 	hashedPassword, err := helpers.HashAndSalt([]byte(password))
 	if err != nil {
-		return fmt.Errorf("could not hash password: %v", err)
+		return id, fmt.Errorf("could not hash password: %v", err)
 	}
 	var stmt = psql.RunWith(db.cursor).Insert("users").SetMap(map[string]interface{}{
 		"username": username,
 		"password": hashedPassword,
-	})
+	}).Suffix("RETURNING \"id\"")
 
-	if _, err := stmt.ExecContext(ctx); err != nil {
+	err = stmt.QueryRowContext(ctx).Scan(&id)
+
+	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return er.ErrUserNameAlreadyExists
+			return id, er.ErrUserNameAlreadyExists
 		}
-		return fmt.Errorf("could not insert user: %v", err)
+		return id, fmt.Errorf("could not insert user: %v", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balance, error) {
@@ -125,7 +128,8 @@ func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balan
 		where
 			user_id = $1
 	`
-	err := db.cursor.QueryRowContext(ctx, query).Scan(balance)
+	fmt.Println(query)
+	err := db.cursor.QueryRowContext(ctx, query, userID).Scan(&balance.Current, &balance.Withdrawn)
 	if err != nil {
 		return balance, err
 	}
@@ -174,7 +178,7 @@ func (db Database) GetWithdraws(ctx context.Context, userID int) error {
 	return nil
 }
 
-func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount int) error {
+func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount float64) error {
 
 	orderNumber, err := strconv.ParseInt(string(orderNum), 10, 64)
 
@@ -240,22 +244,30 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 }
 
 func (db Database) UpdateOrderState(ctx context.Context, orderID int, orderStatus string, userID int, amount float64) error {
-	tx, err := db.cursor.BeginTx(ctx, nil)
+	fmt.Println("orderID", orderID)
+	fmt.Println("orderStatus", orderStatus)
+	fmt.Println("userID", userID)
+	fmt.Println("amount", amount)
+	tx, err := db.cursor.Begin()
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, "update orders o set status=$1 where o.number = $2", orderStatus, orderID)
+	_, err = tx.ExecContext(ctx, "update orders o set status=$1 where o.id = $2", orderStatus, orderID)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	_, err = tx.ExecContext(ctx, "insert into transactions (user_id, order_id, amount) values ($1, $2, $3)", userID, orderID, amount)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
+		fmt.Println(err)
 		return err
 	}
 

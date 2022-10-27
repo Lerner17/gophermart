@@ -19,21 +19,22 @@ func CalculateBonuce(db OrderUpdater, orderID int, orderNumber string, userID in
 	ctx := context.Background()
 	cfg := config.Instance
 
-	result := &models.AccrualOrder{}
+	order := models.AccrualOrder{}
 
 	url := fmt.Sprintf("http://%s/api/orders/%s", cfg.AccrualSystemAddress, orderNumber)
 
 	client := request.Client{URL: url, Method: "GET"}
 
-	resp := client.Send().Scan(&result)
+	resp := client.Send()
+	fmt.Println(resp.ScanJSON(&order))
 	if !resp.OK() {
 		// handle error
 		log.Println(resp.Error())
 	}
 
-	fmt.Println(result)
+	// json.Unmarshal(result, &)
 
-	err := db.UpdateOrderState(ctx, orderID, result.Status, userID, result.Accrual)
+	err := db.UpdateOrderState(ctx, orderID, order.Status, userID, order.Accrual)
 	if err != nil {
 		fmt.Println(err)
 	}

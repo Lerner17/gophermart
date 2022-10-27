@@ -23,7 +23,7 @@ var ErrBalanceTooLow = &er.HTTPError{
 }
 
 type WithdrawWriter interface {
-	CreateTransaction(context.Context, int, string, int) error
+	CreateTransaction(context.Context, int, string, float64) error
 }
 
 func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {

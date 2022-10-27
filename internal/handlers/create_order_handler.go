@@ -59,6 +59,7 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 		}
 
 		userID, err := auth.GetUserIDFromToken(token.Value)
+		fmt.Println("userid", userID)
 		if err != nil {
 			return err
 		}
