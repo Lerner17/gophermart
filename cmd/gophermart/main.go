@@ -154,7 +154,7 @@ func main() {
 	authGroup.GET("/api/user/balance", handlers.BalanceHandler(db))
 
 	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
-	authGroup.GET("/api/user/balance/withdraw", handlers.GetWithdrawHandler(db))
+	authGroup.GET("/api/user/withdrawals", handlers.GetWithdrawListHandler(db))
 
 	e.Logger.Fatal(e.Start(cfg.ServerAddress))
 }

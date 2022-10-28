@@ -10,7 +10,7 @@ import (
 type Config struct {
 	ServerAddress        string `env:"RUN_ADDRESS"`
 	DatabaseDsn          string `env:"DATABASE_URI"`
-	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"localhost:8080"`
 }
 
 var Instance *Config

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
@@ -24,6 +27,12 @@ var ErrBalanceTooLow = &er.HTTPError{
 
 type WithdrawWriter interface {
 	CreateTransaction(context.Context, int, string, float64) error
+	CreateOrderWithWithdraws(context.Context, int, models.Order) error
+}
+
+type withdrawBody struct {
+	Order string  `json:"order"`
+	Sum   float64 `json:"sum"`
 }
 
 func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
@@ -39,23 +48,43 @@ func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
 			return err
 		}
 
-		withderaw := &models.Withdraw{}
+		body := new(withdrawBody)
 
-		if err := c.Bind(withderaw); err != nil {
+		if err := c.Bind(&body); err != nil {
 			return fmt.Errorf("could not bind body: %v: %w", err, ErrBindBody)
 		}
 
-		orderNumber, err := strconv.ParseInt(string(withderaw.Order), 10, 64)
+		order := models.Order{
+			UserID:       userID,
+			Status:       "PROCESSED",
+			Number:       body.Order,
+			Processed_at: time.Now(),
+			Accrual: sql.NullFloat64{
+				Valid:   true,
+				Float64: body.Sum,
+			},
+		}
+
+		orderNumber, err := strconv.ParseInt(string(order.Number), 10, 64)
 		fmt.Println(orderNumber)
 		if err != nil || !helpers.ValidLuhn(int(orderNumber)) {
 			fmt.Println(err)
 			return fmt.Errorf("invalid order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
-		fmt.Println(withderaw)
-		if err := db.CreateTransaction(c.Request().Context(), userID, withderaw.Order, withderaw.Sum); err != nil {
-			fmt.Println(err)
-			return fmt.Errorf("could not create withdreaw: %v: %w", err, ErrBalanceTooLow)
+		fmt.Println(order)
+		err = db.CreateOrderWithWithdraws(c.Request().Context(), userID, order)
+
+		if err != nil {
+			if errors.Is(err, er.ErrBalanceTooLow) {
+				return fmt.Errorf("user balance too low: %v: %w", err, ErrBalanceTooLow)
+			}
+			return fmt.Errorf("cannot create orders with withdraw: %v", err)
 		}
+
+		// if err := db.CreateTransaction(c.Request().Context(), userID, withderaw.Order, withderaw.Sum); err != nil {
+		// 	fmt.Println(err)
+		// 	return fmt.Errorf("could not create withdreaw: %v: %w", err, ErrBalanceTooLow)
+		// }
 		return nil
 	}
 }

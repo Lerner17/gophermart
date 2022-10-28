@@ -9,12 +9,10 @@ import (
 
 	"github.com/Lerner17/gophermart/internal/config"
 	er "github.com/Lerner17/gophermart/internal/errors"
-	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx"
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
@@ -46,9 +44,9 @@ func (db Database) CreateOrder(ctx context.Context, order models.Order) (int, er
 	var id int
 
 	var stmt = psql.RunWith(db.cursor).Insert("orders").SetMap(map[string]interface{}{
-		"number":  order.Number,
-		"user_id": order.UserID,
-		"status":  order.Status,
+		"order_number": order.Number,
+		"user_id":      order.UserID,
+		"status":       order.Status,
 	}).Suffix("RETURNING \"id\"")
 
 	err := stmt.QueryRow().Scan(&id)
@@ -63,48 +61,6 @@ func (db Database) CreateOrder(ctx context.Context, order models.Order) (int, er
 			return id, er.ErrOrderNumberAlreadyExists
 		}
 		return id, fmt.Errorf("could not insert order: %v", err)
-	}
-	return id, nil
-}
-
-func (db Database) LoginUser(username, password string) (int, error) {
-	var id int
-	var p string
-	query := psql.Select("id", "password").From("users").Where(sq.Eq{"username": username}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
-
-	if err := query.QueryRow().Scan(&id, &p); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return 0, er.ErrInvalidLoginOrPassword
-		}
-		return 0, err
-	}
-	fmt.Println(id)
-	if verefyPassword := helpers.ComparePasswords(p, []byte(password)); !verefyPassword {
-		return 0, er.ErrInvalidLoginOrPassword
-	}
-
-	return id, nil
-}
-
-func (db Database) RegisterUser(ctx context.Context, username, password string) (int, error) {
-	var id int
-	hashedPassword, err := helpers.HashAndSalt([]byte(password))
-	if err != nil {
-		return id, fmt.Errorf("could not hash password: %v", err)
-	}
-	var stmt = psql.RunWith(db.cursor).Insert("users").SetMap(map[string]interface{}{
-		"username": username,
-		"password": hashedPassword,
-	}).Suffix("RETURNING \"id\"")
-
-	err = stmt.QueryRowContext(ctx).Scan(&id)
-
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return id, er.ErrUserNameAlreadyExists
-		}
-		return id, fmt.Errorf("could not insert user: %v", err)
 	}
 	return id, nil
 }
@@ -137,47 +93,7 @@ func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balan
 	return balance, nil
 }
 
-func (db Database) getOrderID(userID int, orderNumber int64) (int, error) {
-	var id int
-	query := psql.Select("id").From("orders").Where(sq.Eq{
-		"number":  orderNumber,
-		"user_id": userID,
-	}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
-	if err := query.QueryRow().Scan(&id); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return 0, er.ErrCannotFindOrderByNumber
-		}
-		return id, err
-	}
-	return id, nil
-}
-
-func (db Database) checkUserBalance(userID int, amount int) error {
-
-	var totalBalance int
-
-	// select sum(amount) from transactions t where user_id = 1
-	query := psql.Select("sum(amount)").From("transactions").Where(sq.Eq{
-		"user_id": userID,
-	}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
-
-	if err := query.QueryRow().Scan(&totalBalance); err != nil {
-		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return , er.ErrCannotFindOrderByNumber TODO:
-		// }
-		return err
-	}
-	if totalBalance < amount {
-		return errors.New("user balance too low")
-	}
-
-	return nil
-}
-
-func (db Database) GetWithdraws(ctx context.Context, userID int) error {
-	return nil
-}
-
+// TODO: !!!
 func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount float64) error {
 
 	orderNumber, err := strconv.ParseInt(string(orderNum), 10, 64)
@@ -206,89 +122,4 @@ func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum s
 	}
 
 	return nil
-}
-
-func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, error) {
-
-	orders := make([]models.Order, 0)
-	query := psql.Select("number", "status", "amount as accrual", "uploaded_at").
-		From("orders o").
-		Where(sq.Eq{"o.user_id": userID}).
-		LeftJoin("transactions t on o.id = t.order_id").
-		RunWith(db.cursor).
-		PlaceholderFormat(sq.Dollar)
-
-	rows, err := query.QueryContext(ctx)
-	if err != nil {
-		return orders, err
-	}
-
-	if rows.Err() == nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return orders, er.ErrOrdersNotFound
-		}
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var order models.Order
-		fmt.Println(order)
-		// var orderTime string
-		err = rows.Scan(&order.Number, &order.Status, &order.Accrual, &order.UploadedAt)
-		if err != nil {
-			return orders, err
-		}
-		orders = append(orders, order)
-	}
-
-	return orders, nil
-}
-
-func (db Database) UpdateOrderState(ctx context.Context, orderID int, orderStatus string, userID int, amount float64) error {
-	fmt.Println("orderID", orderID)
-	fmt.Println("orderStatus", orderStatus)
-	fmt.Println("userID", userID)
-	fmt.Println("amount", amount)
-	tx, err := db.cursor.Begin()
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	defer tx.Rollback()
-
-	_, err = tx.ExecContext(ctx, "update orders o set status=$1 where o.id = $2", orderStatus, orderID)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	_, err = tx.ExecContext(ctx, "insert into transactions (user_id, order_id, amount) values ($1, $2, $3)", userID, orderID, amount)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	return nil
-}
-
-func (db Database) checkOrder(ctx context.Context, orderNumber string, userID int64) error {
-	var uid int64
-
-	query := psql.Select("user_id").From("orders").Where(sq.Eq{"number": orderNumber}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
-
-	if err := query.QueryRow().Scan(&uid); err != nil {
-		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return 0, er.ErrInvalidLoginOrPassword
-		// }
-		return err
-	}
-
-	if userID == uid {
-		return er.ErrOrderWasCreatedBySelf
-	} else {
-		return er.ErrOrderWasCreatedByAnotherUser
-	}
 }

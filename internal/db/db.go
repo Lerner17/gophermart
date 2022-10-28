@@ -16,9 +16,10 @@ type DB interface {
 	GetUserBalance(context.Context, int) (models.Balance, error)
 
 	CreateTransaction(context.Context, int, string, float64) error
-	GetWithdraws(context.Context, int) error
+	GetWithdraws(context.Context, int) ([]models.Withdraw, error)
 
 	UpdateOrderState(context.Context, int, string, int, float64) error
+	CreateOrderWithWithdraws(context.Context, int, models.Order) error
 }
 
 func GetDB() DB {

@@ -11,3 +11,5 @@ var ErrOrderWasCreatedByAnotherUser = errors.New("order was already created by a
 
 var ErrOrdersNotFound = errors.New("has not orders by current user")
 var ErrCannotFindOrderByNumber = errors.New("cannot find order by number")
+
+var ErrBalanceTooLow = errors.New("user balance is too low")
