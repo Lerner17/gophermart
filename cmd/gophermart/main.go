@@ -94,8 +94,8 @@ func customHTTPErrorHandler(err error, ctx echo.Context) {
 	}
 }
 
-func migragte(e *echo.Echo) {
-	db, err := sql.Open("postgres", "postgres://shroten:shroten@localhost:5432/shroten?sslmode=disable")
+func migragte(e *echo.Echo, cfg *config.Config) {
+	db, err := sql.Open("postgres", cfg.DatabaseDsn)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -130,14 +130,14 @@ func migragte(e *echo.Echo) {
 
 func main() {
 	cfg := config.Instance
-	// parsArgs(cfg)
+	parsArgs(cfg)
 	fmt.Println(cfg)
 	e := echo.New()
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
 
-	migragte(e) // Migrate migrations
+	migragte(e, cfg) // Migrate migrations
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
