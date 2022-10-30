@@ -137,7 +137,7 @@ func main() {
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
 
-	// migragte(e) // Migrate migrations
+	migragte(e) // Migrate migrations
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
