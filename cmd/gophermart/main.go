@@ -130,14 +130,14 @@ func migragte(e *echo.Echo) {
 
 func main() {
 	cfg := config.Instance
-	parsArgs(cfg)
+	// parsArgs(cfg)
 	fmt.Println(cfg)
 	e := echo.New()
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
 
-	migragte(e) // Migrate migrations
+	// migragte(e) // Migrate migrations
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
