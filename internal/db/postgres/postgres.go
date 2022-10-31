@@ -77,8 +77,8 @@ func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balan
 			from
 				transactions t2
 			where
-				t2.amount > 0
-				and user_id = $1) as withdrawn
+				t2.amount < 0
+				and user_id = $1) * -1  as withdrawn
 		from
 			transactions t
 		where
