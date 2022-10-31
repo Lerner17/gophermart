@@ -85,6 +85,7 @@ func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balan
 			user_id = $1
 	`
 	fmt.Println(query)
+
 	err := db.cursor.QueryRowContext(ctx, query, userID).Scan(&balance.Current, &balance.Withdrawn)
 	if err != nil {
 		return balance, err

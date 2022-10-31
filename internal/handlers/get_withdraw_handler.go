@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -11,6 +12,12 @@ import (
 
 type WithdrawGetter interface {
 	GetWithdraws(context.Context, int) ([]models.Withdraw, error)
+}
+
+type withdrawnResponse struct {
+	Order       string    `json:"order"`
+	Sum         int       `json:"sum"`
+	ProcessedAt time.Time `json:"processed_at"`
 }
 
 func GetWithdrawListHandler(db WithdrawGetter) echo.HandlerFunc {

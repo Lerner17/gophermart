@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/Lerner17/gophermart/internal/auth"
@@ -12,6 +12,11 @@ import (
 
 type BalanceGetter interface {
 	GetUserBalance(context.Context, int) (models.Balance, error)
+}
+
+type balanceResponse struct {
+	Current   float64 `json:"current"`
+	Withdrawn float64 `json:"withdrawn"`
 }
 
 func BalanceHandler(db BalanceGetter) echo.HandlerFunc {
@@ -28,12 +33,14 @@ func BalanceHandler(db BalanceGetter) echo.HandlerFunc {
 		}
 
 		balance, err := db.GetUserBalance(c.Request().Context(), userID)
-		fmt.Println(balance)
 
 		if err != nil {
 			return err
 		}
 
-		return c.JSON(http.StatusOK, balance)
+		return c.JSON(http.StatusOK, &balanceResponse{
+			math.Round(balance.Current.Float64*100) / 100,
+			balance.Withdrawn.Float64,
+		})
 	}
 }
