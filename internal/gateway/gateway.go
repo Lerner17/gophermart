@@ -3,12 +3,11 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/Lerner17/gophermart/internal/config"
 	"github.com/Lerner17/gophermart/internal/models"
 
-	"github.com/monaco-io/request"
+	"github.com/go-resty/resty/v2"
 )
 
 type OrderUpdater interface {
@@ -19,22 +18,20 @@ func CalculateBonuce(db OrderUpdater, orderID int, orderNumber string, userID in
 	ctx := context.Background()
 	cfg := config.Instance
 
+	client := resty.New()
 	order := models.AccrualOrder{}
 
-	url := fmt.Sprintf("http://%s/api/orders/%s", cfg.AccrualSystemAddress, orderNumber)
+	response, err := client.R().SetResult(&order).EnableTrace().
+		SetContext(ctx).SetPathParams(map[string]string{"orderNumber": orderNumber}).
+		Get(cfg.AccrualSystemAddress + "/api/orders/{orderNumber}")
 
-	client := request.Client{URL: url, Method: "GET"}
-
-	resp := client.Send()
-	fmt.Println(resp.ScanJSON(&order))
-	if !resp.OK() {
-		// handle error
-		log.Println(resp.Error())
+	if err != nil {
+		fmt.Print(err)
 	}
 
-	// json.Unmarshal(result, &)
+	fmt.Println(response)
 
-	err := db.UpdateOrderState(ctx, orderID, order.Status, userID, order.Accrual)
+	err = db.UpdateOrderState(ctx, orderID, order.Status, userID, order.Accrual)
 	if err != nil {
 		fmt.Println(err)
 	}
