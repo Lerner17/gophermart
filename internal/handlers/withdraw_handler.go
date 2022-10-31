@@ -55,10 +55,10 @@ func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
 		}
 
 		order := models.Order{
-			UserID:       userID,
-			Status:       "PROCESSED",
-			Number:       body.Order,
-			Processed_at: time.Now(),
+			UserID:      userID,
+			Status:      "PROCESSED",
+			Number:      body.Order,
+			ProcessedAt: time.Now(),
 			Accrual: sql.NullFloat64{
 				Valid:   true,
 				Float64: body.Sum,

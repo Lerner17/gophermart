@@ -209,7 +209,7 @@ func (db Database) GetWithdraws(ctx context.Context, userID int) ([]models.Withd
 	for rows.Next() {
 		var w models.Withdraw
 		fmt.Println(w)
-		err = rows.Scan(&w.Number, &w.Processed_at, &w.Sum)
+		err = rows.Scan(&w.Number, &w.ProcessedAt, &w.Sum)
 		if err != nil {
 			return withdraw, err
 		}

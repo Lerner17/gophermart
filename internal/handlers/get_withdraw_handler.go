@@ -31,6 +31,10 @@ func GetWithdrawListHandler(db WithdrawGetter) echo.HandlerFunc {
 
 		userID, err := auth.GetUserIDFromToken(token.Value)
 
+		if err != nil {
+			return err
+		}
+
 		w, err := db.GetWithdraws(c.Request().Context(), userID)
 
 		if err != nil {

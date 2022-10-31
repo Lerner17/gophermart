@@ -7,12 +7,12 @@ import (
 )
 
 type Order struct {
-	UserID       int             `json:"user_id,omitempty"`
-	Number       string          `json:"number"`
-	Status       string          `json:"status,omitempty"`
-	UploadedAt   time.Time       `json:"uploaded_at"`
-	Accrual      sql.NullFloat64 `json:"accrual"`
-	Processed_at time.Time       `json:"processed_at"`
+	UserID      int             `json:"user_id,omitempty"`
+	Number      string          `json:"number"`
+	Status      string          `json:"status,omitempty"`
+	UploadedAt  time.Time       `json:"uploaded_at"`
+	Accrual     sql.NullFloat64 `json:"accrual"`
+	ProcessedAt time.Time       `json:"processed_at"`
 }
 
 func (o Order) MarshalJSON() ([]byte, error) {
@@ -34,8 +34,8 @@ func (o Order) MarshalJSON() ([]byte, error) {
 }
 
 type AccrualOrder struct {
-	Number       string    `json:"order"`
-	Status       string    `json:"status"`
-	Accrual      float64   `json:"accrual"`
-	Processed_at time.Time `json:"processed_at"`
+	Number      string    `json:"order"`
+	Status      string    `json:"status"`
+	Accrual     float64   `json:"accrual"`
+	ProcessedAt time.Time `json:"processed_at"`
 }
