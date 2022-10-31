@@ -129,9 +129,9 @@ func (db Database) checkOrder(ctx context.Context, orderNumber string, userID in
 		PlaceholderFormat(sq.Dollar)
 
 	if err := query.QueryRow().Scan(&uid); err != nil {
-		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return 0, er.ErrInvalidLoginOrPassword
-		// }
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return er.ErrCannotFindOrderByNumber
+		}
 		return err
 	}
 
@@ -168,9 +168,9 @@ func (db Database) checkUserBalance(userID int, amount int) error {
 	fmt.Println(query.ToSql())
 
 	if err := query.QueryRow().Scan(&totalBalance); err != nil {
-		// if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		// 	return , er.ErrCannotFindOrderByNumber TODO:
-		// }
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return er.ErrCannotFindTransactions
+		}
 		return err
 	}
 	fmt.Println(totalBalance.Float64 < float64(amount))
@@ -182,8 +182,6 @@ func (db Database) checkUserBalance(userID int, amount int) error {
 }
 
 func (db Database) GetWithdraws(ctx context.Context, userID int) ([]models.Withdraw, error) {
-	// select order_number, processed_at, t.amount * -1 as amount
-	// from orders o left join transactions t on o.id = t.order_id where t.amount < 0 and o.user_id = 2;
 	withdraw := make([]models.Withdraw, 0)
 	query := psql.Select("order_number", "processed_at", "t.amount * -1 as amount").
 		From("orders o").

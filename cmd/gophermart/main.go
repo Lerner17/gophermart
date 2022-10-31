@@ -3,11 +3,11 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 
-	_ "github.com/Lerner17/gophermart/cmd/gophermart/docs"
 	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/config"
 	"github.com/Lerner17/gophermart/internal/db"
@@ -25,22 +25,22 @@ import (
 )
 
 func parsArgs(c *config.Config) {
-	// serverAddressPtr := flag.String("a", "", "")
-	// DatabaseDsnPtr := flag.String("d", "", "")
-	// AccrualSystemAddressPtr := flag.String("r", "", "")
-	// flag.Parse()
+	serverAddressPtr := flag.String("a", "", "")
+	DatabaseDsnPtr := flag.String("d", "", "")
+	AccrualSystemAddressPtr := flag.String("r", "", "")
+	flag.Parse()
 
-	// if *serverAddressPtr != "" {
-	// 	c.ServerAddress = *serverAddressPtr
-	// }
+	if *serverAddressPtr != "" {
+		c.ServerAddress = *serverAddressPtr
+	}
 
-	// if *AccrualSystemAddressPtr != "" {
-	// 	c.AccrualSystemAddress = *AccrualSystemAddressPtr
-	// }
+	if *AccrualSystemAddressPtr != "" {
+		c.AccrualSystemAddress = *AccrualSystemAddressPtr
+	}
 
-	// if *DatabaseDsnPtr != "" {
-	// 	c.DatabaseDsn = *DatabaseDsnPtr
-	// }
+	if *DatabaseDsnPtr != "" {
+		c.DatabaseDsn = *DatabaseDsnPtr
+	}
 }
 
 func customHTTPErrorHandler(err error, ctx echo.Context) {
@@ -57,31 +57,11 @@ func customHTTPErrorHandler(err error, ctx echo.Context) {
 		code = codeerr.HTTPCode()
 	}
 
-	// // FIXME: Do not hardcode sql dependency
-	// if errors.Is(err, sql.ErrNoRows) {
-	// 	code = http.StatusNotFound
-	// }
-
-	// FIXME: Do not hardcode postgres dependency
-	// var pqError pq.Error
-	// if errors.As(err, &pqError) {
-	// 	const pgConstraintViolationError = "23505"
-	// 	if pqError.Code == pgConstraintViolationError {
-	// 		code = http.StatusBadRequest
-	// 	}
-	// }
-
 	var msgerr interface{ Message() string }
 	if errors.As(err, &msgerr) {
 		message = msgerr.Message()
 	}
 
-	// var vErr core.ValidationError
-	// if errors.As(err, &vErr) {
-	// 	response = vErr
-	// }
-
-	// unknown error
 	ctx.Logger().Error(err)
 
 	if err := ctx.JSON(code, models.Response{

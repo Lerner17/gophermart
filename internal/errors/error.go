@@ -13,3 +13,4 @@ var ErrOrdersNotFound = errors.New("has not orders by current user")
 var ErrCannotFindOrderByNumber = errors.New("cannot find order by number")
 
 var ErrBalanceTooLow = errors.New("user balance is too low")
+var ErrCannotFindTransactions = errors.New("cannot find transactions")

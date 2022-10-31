@@ -81,10 +81,6 @@ func WithdrawHandler(db WithdrawWriter) echo.HandlerFunc {
 			return fmt.Errorf("cannot create orders with withdraw: %v", err)
 		}
 
-		// if err := db.CreateTransaction(c.Request().Context(), userID, withderaw.Order, withderaw.Sum); err != nil {
-		// 	fmt.Println(err)
-		// 	return fmt.Errorf("could not create withdreaw: %v: %w", err, ErrBalanceTooLow)
-		// }
 		return nil
 	}
 }

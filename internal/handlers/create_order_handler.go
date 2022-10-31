@@ -31,11 +31,6 @@ var ErrOrderAlreadyExistsByAnotherUser = &er.HTTPError{
 	Msg:  "order already exists by another user",
 }
 
-// var ErrInvalidOrderNumber = &er.HTTPError{
-// 	Code: 422,
-// 	Msg:  "incorrect order number",
-// }
-
 type DBOrderCreator interface {
 	CreateOrder(context.Context, models.Order) (int, error)
 	UpdateOrderState(context.Context, int, string, int, float64) error

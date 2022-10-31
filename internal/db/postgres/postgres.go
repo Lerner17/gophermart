@@ -94,7 +94,6 @@ func (db Database) GetUserBalance(ctx context.Context, userID int) (models.Balan
 	return balance, nil
 }
 
-// TODO: !!!
 func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum string, amount float64) error {
 
 	orderNumber, err := strconv.ParseInt(string(orderNum), 10, 64)
@@ -103,9 +102,6 @@ func (db Database) CreateTransaction(ctx context.Context, userID int, orderNum s
 		return err
 	}
 
-	// if err = db.checkUserBalance(userID, amount); err != nil {
-	// 	return err
-	// }
 	orderID, err := db.getOrderID(userID, orderNumber)
 
 	if err != nil {
