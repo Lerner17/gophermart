@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 
-	_ "github.com/Lerner17/gophermart/cmd/gophermart/docs"
 	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/config"
 	"github.com/Lerner17/gophermart/internal/db"
@@ -58,31 +57,11 @@ func customHTTPErrorHandler(err error, ctx echo.Context) {
 		code = codeerr.HTTPCode()
 	}
 
-	// // FIXME: Do not hardcode sql dependency
-	// if errors.Is(err, sql.ErrNoRows) {
-	// 	code = http.StatusNotFound
-	// }
-
-	// FIXME: Do not hardcode postgres dependency
-	// var pqError pq.Error
-	// if errors.As(err, &pqError) {
-	// 	const pgConstraintViolationError = "23505"
-	// 	if pqError.Code == pgConstraintViolationError {
-	// 		code = http.StatusBadRequest
-	// 	}
-	// }
-
 	var msgerr interface{ Message() string }
 	if errors.As(err, &msgerr) {
 		message = msgerr.Message()
 	}
 
-	// var vErr core.ValidationError
-	// if errors.As(err, &vErr) {
-	// 	response = vErr
-	// }
-
-	// unknown error
 	ctx.Logger().Error(err)
 
 	if err := ctx.JSON(code, models.Response{
@@ -95,14 +74,14 @@ func customHTTPErrorHandler(err error, ctx echo.Context) {
 	}
 }
 
-func migragte(e *echo.Echo) {
-	db, err := sql.Open("postgres", "postgres://shroten:shroten@localhost:5432/shroten?sslmode=disable")
+func migragte(e *echo.Echo, cfg *config.Config) {
+	db, err := sql.Open("postgres", cfg.DatabaseDsn)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer db.Close()
 	{ // DB Migrations
-		const MigrationVersion = 2
+		const MigrationVersion = 3
 		mDriver, err := postgres.WithInstance(db, &postgres.Config{})
 		if err != nil {
 			panic(fmt.Errorf("could not instantiate db instance for migrations: %w", err))
@@ -138,7 +117,7 @@ func main() {
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
 
-	migragte(e) // Migrate migrations
+	migragte(e, cfg) // Migrate migrations
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
@@ -148,6 +127,14 @@ func main() {
 	}))
 	e.POST("/api/user/register", handlers.Registration(db))
 	e.POST("/api/user/login", handlers.LoginHandler(db))
+
 	authGroup.POST("/api/user/orders", handlers.CreateOrderHandler(db))
+	authGroup.GET("/api/user/orders", handlers.GetOrdersHandler(db))
+
+	authGroup.GET("/api/user/balance", handlers.BalanceHandler(db))
+
+	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
+	authGroup.GET("/api/user/withdrawals", handlers.GetWithdrawListHandler(db))
+
 	e.Logger.Fatal(e.Start(cfg.ServerAddress))
 }

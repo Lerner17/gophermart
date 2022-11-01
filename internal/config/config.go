@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 )
 
 type Config struct {
-	ServerAddress        string `env:"ADDRESS" envDefault:"127.0.0.1:8080"`
+	ServerAddress        string `env:"RUN_ADDRESS"`
 	DatabaseDsn          string `env:"DATABASE_URI"`
-	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"127.0.0.1:8088"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 }
 
 var Instance *Config

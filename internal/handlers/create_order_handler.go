@@ -5,19 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
+	"github.com/Lerner17/gophermart/internal/gateway"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/labstack/echo/v4"
 )
-
-var ErrInvalidOrderNumber = &er.HTTPError{
-	Code: 422,
-	Msg:  "incorrect order number",
-}
 
 var ErrInvalidRequestFormat = &er.HTTPError{
 	Code: 400,
@@ -35,7 +32,8 @@ var ErrOrderAlreadyExistsByAnotherUser = &er.HTTPError{
 }
 
 type DBOrderCreator interface {
-	CreateOrder(context.Context, models.Order) error
+	CreateOrder(context.Context, models.Order) (int, error)
+	UpdateOrderState(context.Context, int, string, int, float64) error
 }
 
 func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
@@ -55,7 +53,8 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 			return err
 		}
 
-		userID, err := auth.GetUserIdFromToken(token.Value)
+		userID, err := auth.GetUserIDFromToken(token.Value)
+		fmt.Println("userid", userID)
 		if err != nil {
 			return err
 		}
@@ -67,24 +66,24 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 
 		var order = models.Order{
 			UserID: userID,
-			Number: orderNumber,
+			Number: string(data),
 			Status: "NEW",
 		}
 
 		ctx := c.Request().Context()
-		if err := db.CreateOrder(ctx, order); err != nil {
-			if err != nil {
-				if errors.Is(err, er.OrderWasCreatedByAnotherUser) {
-					return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
-				}
-				if errors.Is(err, er.OrderWasCreatedBySelf) {
-					return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
-				}
-				return err
+		id, err := db.CreateOrder(ctx, order)
+		if err != nil {
+			if errors.Is(err, er.ErrOrderWasCreatedByAnotherUser) {
+				return fmt.Errorf("conflict: %v: %w", err, ErrOrderAlreadyExistsByAnotherUser)
 			}
-			return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
+			if errors.Is(err, er.ErrOrderWasCreatedBySelf) {
+				return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
+			}
+			return err
+			// return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
-
-		return nil
+		fmt.Println(id)
+		go gateway.CalculateBonuce(db, id, order.Number, userID)
+		return c.String(http.StatusAccepted, "")
 	}
 }

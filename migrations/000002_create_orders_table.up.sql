@@ -9,10 +9,10 @@ END
 $$;
 
 CREATE TABLE IF NOT EXISTS orders (
-    "id"          bigint       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    "number"      bigint       UNIQUE NOT NULL,
-    "user_id"     bigint       NOT NULL,
-    "created_at"  timestamptz  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "uploaded_at" timestamptz  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "status"      order_status NOT NULL DEFAULT 'NEW'
+    "id"           bigint       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "order_number" bigint       UNIQUE NOT NULL,
+    "user_id"      bigint       NOT NULL,
+    "uploaded_at"  timestamptz  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "status"       order_status NOT NULL DEFAULT 'NEW',
+    "processed_at" TIMESTAMPTZ  NULL
 )

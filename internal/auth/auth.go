@@ -29,7 +29,6 @@ type Claims struct {
 }
 
 func generateAccessToken(user *models.User) (string, time.Time, error) {
-	// Declare the expiration time of the token (1h).
 	expirationTime := time.Now().Add(1 * time.Hour)
 
 	return generateToken(user, expirationTime, []byte(GetJWTSecret()))
@@ -48,20 +47,16 @@ func GenerateTokensAndSetCookies(user *models.User, c echo.Context) error {
 }
 
 func generateToken(user *models.User, expirationTime time.Time, secret []byte) (string, time.Time, error) {
-	// Create the JWT claims, which includes the username and expiry time.
 	claims := &Claims{
 		ID:       user.ID,
 		Username: user.Login,
 		StandardClaims: jwt.StandardClaims{
-			// In JWT, the expiry time is expressed as unix milliseconds.
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
 
-	// Declare the token with the HS256 algorithm used for signing, and the claims.
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// Create the JWT string.
 	tokenString, err := token.SignedString(secret)
 	if err != nil {
 		return "", time.Now(), err
@@ -99,7 +94,7 @@ func JWTErrorChecker(err error, c echo.Context) error {
 	return ErrUnauthorized
 }
 
-func GetUserIdFromToken(tokenString string) (int, error) {
+func GetUserIDFromToken(tokenString string) (int, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &models.JwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(jwtSecretKey), nil
 	})
