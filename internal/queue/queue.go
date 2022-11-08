@@ -9,7 +9,7 @@ import (
 // In real world we would have Redis or Kafka, etc.
 var ordersQueue = make(chan models.OrderMessage, 100000)
 
-var ErrQueueClosed = errors.New("Queue is closed")
+var ErrQueueClosed = errors.New("queue is closed")
 
 func PushOrderMessage(msg models.OrderMessage) {
 	ordersQueue <- msg
@@ -25,7 +25,7 @@ func GetNextOrderMessage() (models.OrderMessage, error) {
 
 func DumpAndCloseOrderQueue() []models.OrderMessage {
 	close(ordersQueue)
-	var result []models.OrderMessage = make([]models.OrderMessage, 0, len(ordersQueue))
+	var result = make([]models.OrderMessage, 0, len(ordersQueue))
 	for msg := range ordersQueue {
 		result = append(result, msg)
 	}

@@ -19,13 +19,9 @@ func (db Database) CreateOrderWithWithdraws(ctx context.Context, userID int, o m
 
 	tx, err := db.cursor.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("Could not start transaction: %v", err)
+		return fmt.Errorf("could not start transaction: %v", err)
 	}
 	defer tx.Rollback() // Because we are run Rollback after Commit (at the end of function) it would be OK
-
-	if err != nil {
-		return er.ErrBalanceTooLow
-	}
 
 	query := psql.Select("sum(amount)").From("transactions").Where(sq.Eq{
 		"user_id": userID,
@@ -39,8 +35,9 @@ func (db Database) CreateOrderWithWithdraws(ctx context.Context, userID int, o m
 	}
 
 	if !totalBalance.Valid || totalBalance.Float64 < float64(o.Accrual.Float64) {
-		return errors.New("user balance too low")
+		return er.ErrBalanceTooLow
 	}
+
 	var oid int64
 	stmt, err := tx.PrepareContext(ctx, `
 		insert into orders(

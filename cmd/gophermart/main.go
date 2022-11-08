@@ -179,30 +179,30 @@ func main() {
 	}
 }
 
-const MSG_QUEUE_DUMP_FILE = "messages.dump"
+const MsgQueueDumpFile = "messages-dump.json"
 
 func DumpQueueToFile(messages []models.OrderMessage) error {
 	data, err := json.Marshal(messages)
 	if err != nil {
-		return fmt.Errorf("Could not marshal dump of orders queue: %v", err)
+		return fmt.Errorf("could not marshal dump of orders queue: %v", err)
 	}
 
-	if err := os.WriteFile(MSG_QUEUE_DUMP_FILE, data, 0600); err != nil {
-		return fmt.Errorf("Could not dump messages to file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+	if err := os.WriteFile(MsgQueueDumpFile, data, 0600); err != nil {
+		return fmt.Errorf("could not dump messages to file %s: %v", MsgQueueDumpFile, err)
 	}
 
 	return nil
 }
 
 func RestoreQueue() ([]models.OrderMessage, error) {
-	data, err := os.ReadFile(MSG_QUEUE_DUMP_FILE)
+	data, err := os.ReadFile(MsgQueueDumpFile)
 	if err != nil {
-		return nil, fmt.Errorf("Could not open file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+		return nil, fmt.Errorf("could not open file %s: %v", MsgQueueDumpFile, err)
 	}
 
 	var results = make([]models.OrderMessage, 0)
 	if err := json.Unmarshal(data, &results); err != nil {
-		return nil, fmt.Errorf("Could not read from file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+		return nil, fmt.Errorf("could not read from file %s: %v", MsgQueueDumpFile, err)
 	}
 
 	return results, nil
