@@ -27,7 +27,7 @@ func generateAccessToken(user *models.User) (string, time.Time, error) {
 	expirationTime := time.Now().Add(1 * time.Hour)
 	cfg := config.Instance
 
-	return generateToken(user, expirationTime, []byte(cfg.JWTSecretKey))
+	return generateToken(user, expirationTime, cfg.JWTSecretKey)
 }
 
 func GenerateTokensAndSetCookies(user *models.User, c echo.Context) error {
