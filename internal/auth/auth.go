@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Lerner17/gophermart/internal/config"
 	er "github.com/Lerner17/gophermart/internal/errors"
 	"github.com/Lerner17/gophermart/internal/models"
 	"github.com/golang-jwt/jwt"
@@ -14,13 +15,7 @@ import (
 const (
 	accessTokenCookieName  = "access-token"
 	refreshTokenCookieName = "refresh-token"
-	jwtSecretKey           = "some-secret-key"
-	jwtRefreshSecretKey    = "some-refresh-secret-key"
 )
-
-func GetJWTSecret() string {
-	return jwtSecretKey
-}
 
 type Claims struct {
 	ID       int    `json:"id"`
@@ -30,8 +25,9 @@ type Claims struct {
 
 func generateAccessToken(user *models.User) (string, time.Time, error) {
 	expirationTime := time.Now().Add(1 * time.Hour)
+	cfg := config.Instance
 
-	return generateToken(user, expirationTime, []byte(GetJWTSecret()))
+	return generateToken(user, expirationTime, []byte(cfg.JWTSecretKey))
 }
 
 func GenerateTokensAndSetCookies(user *models.User, c echo.Context) error {
@@ -96,7 +92,8 @@ func JWTErrorChecker(err error, c echo.Context) error {
 
 func GetUserIDFromToken(tokenString string) (int, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &models.JwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecretKey), nil
+		cfg := config.Instance
+		return []byte(cfg.JWTSecretKey), nil
 	})
 	if err != nil {
 		return 0, err

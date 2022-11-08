@@ -1,18 +1,25 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/config"
+	"github.com/Lerner17/gophermart/internal/consumer"
 	"github.com/Lerner17/gophermart/internal/db"
 	"github.com/Lerner17/gophermart/internal/handlers"
 	"github.com/Lerner17/gophermart/internal/models"
+	"github.com/Lerner17/gophermart/internal/queue"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -113,6 +120,8 @@ func main() {
 	parsArgs(cfg)
 	fmt.Println(cfg)
 	e := echo.New()
+	e.Use(middleware.Recover())
+
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
@@ -121,7 +130,7 @@ func main() {
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
-		SigningKey:              []byte(auth.GetJWTSecret()),
+		SigningKey:              []byte(cfg.JWTSecretKey),
 		TokenLookup:             "cookie:access-token",
 		ErrorHandlerWithContext: auth.JWTErrorChecker,
 	}))
@@ -136,5 +145,65 @@ func main() {
 	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
 	authGroup.GET("/api/user/withdrawals", handlers.GetWithdrawListHandler(db))
 
-	e.Logger.Fatal(e.Start(cfg.ServerAddress))
+	orders, err := RestoreQueue()
+	if err != nil {
+		e.Logger.Infof("Could not restore orders queue dump: %v", err)
+	} else {
+		queue.FullfilQueue(orders)
+	}
+
+	go func() {
+		if err := e.Start(cfg.ServerAddress); err != nil {
+			e.Logger.Info("shutting down the server")
+		}
+	}()
+
+	go func() {
+		consumer.ProcessOrderBounce(e.Logger, db)
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	e.Logger.Info("Received an interrupt, stopping gophermart…")
+
+	var messages = queue.DumpAndCloseOrderQueue()
+	if err := DumpQueueToFile(messages); err != nil {
+		e.Logger.Errorf("Could not dump message queue: %v", err)
+	}
+
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
+}
+
+const MSG_QUEUE_DUMP_FILE = "messages.dump"
+
+func DumpQueueToFile(messages []models.OrderMessage) error {
+	data, err := json.Marshal(messages)
+	if err != nil {
+		return fmt.Errorf("Could not marshal dump of orders queue: %v", err)
+	}
+
+	if err := os.WriteFile(MSG_QUEUE_DUMP_FILE, data, 0600); err != nil {
+		return fmt.Errorf("Could not dump messages to file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+	}
+
+	return nil
+}
+
+func RestoreQueue() ([]models.OrderMessage, error) {
+	data, err := os.ReadFile(MSG_QUEUE_DUMP_FILE)
+	if err != nil {
+		return nil, fmt.Errorf("Could not open file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+	}
+
+	var results = make([]models.OrderMessage, 0)
+	if err := json.Unmarshal(data, &results); err != nil {
+		return nil, fmt.Errorf("Could not read from file %s: %v", MSG_QUEUE_DUMP_FILE, err)
+	}
+
+	return results, nil
 }

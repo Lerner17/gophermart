@@ -10,9 +10,9 @@ import (
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	er "github.com/Lerner17/gophermart/internal/errors"
-	"github.com/Lerner17/gophermart/internal/gateway"
 	"github.com/Lerner17/gophermart/internal/helpers"
 	"github.com/Lerner17/gophermart/internal/models"
+	"github.com/Lerner17/gophermart/internal/queue"
 	"github.com/labstack/echo/v4"
 )
 
@@ -80,10 +80,16 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 				return fmt.Errorf("already exists: %v: %w", err, ErrOrderAlreadyExists)
 			}
 			return err
-			// return fmt.Errorf("confilct order number: %v: %w", err, ErrInvalidOrderNumber)
 		}
-		fmt.Println(id)
-		go gateway.CalculateBonuce(db, id, order.Number, userID)
+		c.Logger().Infof("Order created with id: %d", id)
+
+		queue.PushOrderMessage(models.OrderMessage{
+			OrderID:     id,
+			OrderNumber: order.Number,
+			UserID:      userID,
+		})
+		c.Logger().Infof("Order with ID %d pushed to queue (%s, %v)", id, order.Number, userID)
+
 		return c.String(http.StatusAccepted, "")
 	}
 }
