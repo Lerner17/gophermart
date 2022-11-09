@@ -44,12 +44,14 @@ func ProcessOrderBounce(logger echo.Logger, db OrderUpdater) {
 		if err != nil {
 			logger.Error("Bounce service is unavailable: %v", err)
 			queue.PushOrderMessage(msg) // Error occured, push message back to queue
+			time.Sleep(10 * time.Second)
 			continue
 		}
 
 		if resp.StatusCode() == http.StatusInternalServerError {
 			logger.Error("accrual system return 500 status code. retry imediatly")
 			queue.PushOrderMessage(msg)
+			time.Sleep(10 * time.Second)
 			continue
 		}
 
@@ -64,6 +66,7 @@ func ProcessOrderBounce(logger echo.Logger, db OrderUpdater) {
 		if err != nil {
 			logger.Error("Could not update order: %v", err)
 			queue.PushOrderMessage(msg)
+			time.Sleep(10 * time.Second)
 			continue
 		}
 	}
