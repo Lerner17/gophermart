@@ -79,6 +79,10 @@ func (db Database) GetNewOrders(ctx context.Context) ([]models.Order, error) {
 
 	rows, err := query.QueryContext(ctx)
 	if err != nil {
+		return orders, err
+	}
+
+	if rows.Err() != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			return orders, er.ErrOrdersNotFound
 		}
@@ -112,7 +116,7 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 		return orders, err
 	}
 
-	if rows.Err() == nil {
+	if rows.Err() != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			return orders, er.ErrOrdersNotFound
 		}
