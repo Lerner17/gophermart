@@ -7,15 +7,15 @@ import (
 )
 
 // In real world we would have Redis or Kafka, etc.
-var ordersQueue = make(chan models.OrderMessage, 100000)
+var ordersQueue = make(chan models.Order, 100000)
 
 var ErrQueueClosed = errors.New("queue is closed")
 
-func PushOrderMessage(msg models.OrderMessage) {
+func PushOrderMessage(msg models.Order) {
 	ordersQueue <- msg
 }
 
-func GetNextOrderMessage() (models.OrderMessage, error) {
+func GetNextOrderMessage() (models.Order, error) {
 	msg, ok := <-ordersQueue
 	if !ok {
 		return msg, ErrQueueClosed
@@ -23,16 +23,16 @@ func GetNextOrderMessage() (models.OrderMessage, error) {
 	return msg, nil
 }
 
-func DumpAndCloseOrderQueue() []models.OrderMessage {
+func DumpAndCloseOrderQueue() []models.Order {
 	close(ordersQueue)
-	var result = make([]models.OrderMessage, 0, len(ordersQueue))
+	var result = make([]models.Order, 0, len(ordersQueue))
 	for msg := range ordersQueue {
 		result = append(result, msg)
 	}
 	return result
 }
 
-func FullfilQueue(messages []models.OrderMessage) {
+func FullfilQueue(messages []models.Order) {
 	for _, msg := range messages {
 		ordersQueue <- msg
 	}

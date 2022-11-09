@@ -3,6 +3,8 @@ package consumer
 import (
 	"context"
 	"errors"
+	"net/http"
+	"time"
 
 	"github.com/Lerner17/gophermart/internal/config"
 	"github.com/Lerner17/gophermart/internal/models"
@@ -32,21 +34,33 @@ func ProcessOrderBounce(logger echo.Logger, db OrderUpdater) {
 		client := resty.New()
 		order := models.AccrualOrder{}
 
-		_, err = client.
+		resp, err := client.
 			R().
 			SetResult(&order).
 			EnableTrace().
 			SetContext(ctx).
-			SetPathParams(map[string]string{"orderNumber": msg.OrderNumber}).
+			SetPathParams(map[string]string{"orderNumber": msg.Number}).
 			Get(cfg.AccrualSystemAddress + "/api/orders/{orderNumber}")
-
 		if err != nil {
 			logger.Error("Bounce service is unavailable: %v", err)
 			queue.PushOrderMessage(msg) // Error occured, push message back to queue
 			continue
 		}
 
-		err = db.UpdateOrderState(ctx, msg.OrderID, order.Status, msg.UserID, order.Accrual)
+		if resp.StatusCode() == http.StatusInternalServerError {
+			logger.Error("accrual system return 500 status code. retry imediatly")
+			queue.PushOrderMessage(msg)
+			continue
+		}
+
+		if resp.StatusCode() == http.StatusTooManyRequests {
+			logger.Error("too many requests. sleep")
+			queue.PushOrderMessage(msg)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		err = db.UpdateOrderState(ctx, msg.ID, order.Status, msg.UserID, order.Accrual)
 		if err != nil {
 			logger.Error("Could not update order: %v", err)
 			queue.PushOrderMessage(msg)

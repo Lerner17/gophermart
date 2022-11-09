@@ -20,6 +20,7 @@ type DB interface {
 
 	UpdateOrderState(context.Context, int, string, int, float64) error
 	CreateOrderWithWithdraws(context.Context, int, models.Order) error
+	GetNewOrders(context.Context) ([]models.Order, error)
 }
 
 func GetDB() DB {

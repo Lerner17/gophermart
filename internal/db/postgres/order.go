@@ -69,6 +69,34 @@ func (db Database) CreateOrderWithWithdraws(ctx context.Context, userID int, o m
 	return nil
 }
 
+func (db Database) GetNewOrders(ctx context.Context) ([]models.Order, error) {
+	orders := make([]models.Order, 0)
+
+	query := psql.Select("id", "order_number", "status").From("orders").
+		Where(sq.Eq{"status": "NEW"}).
+		RunWith(db.cursor).
+		PlaceholderFormat(sq.Dollar)
+
+	rows, err := query.QueryContext(ctx)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return orders, er.ErrOrdersNotFound
+		}
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var order models.Order
+		err = rows.Scan(&order.ID, &order.Number, &order.Status)
+		if err != nil {
+			return orders, err
+		}
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}
+
 func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, error) {
 
 	orders := make([]models.Order, 0)

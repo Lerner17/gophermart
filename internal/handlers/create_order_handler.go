@@ -83,10 +83,10 @@ func CreateOrderHandler(db DBOrderCreator) echo.HandlerFunc {
 		}
 		c.Logger().Infof("Order created with id: %d", id)
 
-		queue.PushOrderMessage(models.OrderMessage{
-			OrderID:     id,
-			OrderNumber: order.Number,
-			UserID:      userID,
+		queue.PushOrderMessage(models.Order{
+			ID:     id,
+			Number: order.Number,
+			UserID: userID,
 		})
 		c.Logger().Infof("Order with ID %d pushed to queue (%s, %v)", id, order.Number, userID)
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -145,7 +144,7 @@ func main() {
 	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
 	authGroup.GET("/api/user/withdrawals", handlers.GetWithdrawListHandler(db))
 
-	orders, err := RestoreQueue()
+	orders, err := RestoreQueue(db)
 	if err != nil {
 		e.Logger.Infof("Could not restore orders queue dump: %v", err)
 	} else {
@@ -169,40 +168,22 @@ func main() {
 	defer cancel()
 	e.Logger.Info("Received an interrupt, stopping gophermart…")
 
-	var messages = queue.DumpAndCloseOrderQueue()
-	if err := DumpQueueToFile(messages); err != nil {
-		e.Logger.Errorf("Could not dump message queue: %v", err)
-	}
-
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	}
 }
 
-const MsgQueueDumpFile = "messages-dump.json"
-
-func DumpQueueToFile(messages []models.OrderMessage) error {
-	data, err := json.Marshal(messages)
-	if err != nil {
-		return fmt.Errorf("could not marshal dump of orders queue: %v", err)
-	}
-
-	if err := os.WriteFile(MsgQueueDumpFile, data, 0600); err != nil {
-		return fmt.Errorf("could not dump messages to file %s: %v", MsgQueueDumpFile, err)
-	}
-
-	return nil
+type DBRestorer interface {
+	GetNewOrders(context.Context) ([]models.Order, error)
 }
 
-func RestoreQueue() ([]models.OrderMessage, error) {
-	data, err := os.ReadFile(MsgQueueDumpFile)
-	if err != nil {
-		return nil, fmt.Errorf("could not open file %s: %v", MsgQueueDumpFile, err)
-	}
+func RestoreQueue(db DBRestorer) ([]models.Order, error) {
 
-	var results = make([]models.OrderMessage, 0)
-	if err := json.Unmarshal(data, &results); err != nil {
-		return nil, fmt.Errorf("could not read from file %s: %v", MsgQueueDumpFile, err)
+	ctx := context.Background()
+
+	results, err := db.GetNewOrders(ctx)
+	if err != nil {
+		panic(err)
 	}
 
 	return results, nil
