@@ -11,6 +11,7 @@ type Config struct {
 	ServerAddress        string `env:"RUN_ADDRESS"`
 	DatabaseDsn          string `env:"DATABASE_URI"`
 	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	JWTSecretKey         []byte `env:"JWTSECRET_KEY"`
 }
 
 var Instance *Config
