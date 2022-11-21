@@ -15,17 +15,28 @@ import (
 
 func (db Database) CreateOrderWithWithdraws(ctx context.Context, userID int, o models.Order) error {
 
-	err := db.checkUserBalance(userID, int(o.Accrual.Float64))
-	if err != nil {
-		return er.ErrBalanceTooLow
-	}
+	var totalBalance sql.NullFloat64
 
-	tx, err := db.cursor.Begin()
+	tx, err := db.cursor.BeginTx(ctx, nil)
 	if err != nil {
-		fmt.Println(err)
+		return fmt.Errorf("could not start transaction: %v", err)
+	}
+	defer tx.Rollback() // Because we are run Rollback after Commit (at the end of function) it would be OK
+
+	query := psql.Select("sum(amount)").From("transactions").Where(sq.Eq{
+		"user_id": userID,
+	}).RunWith(tx).PlaceholderFormat(sq.Dollar)
+
+	if err := query.QueryRow().Scan(&totalBalance); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return er.ErrCannotFindTransactions
+		}
 		return err
 	}
-	defer tx.Rollback()
+
+	if !totalBalance.Valid || totalBalance.Float64 < float64(o.Accrual.Float64) {
+		return er.ErrBalanceTooLow
+	}
 
 	var oid int64
 	stmt, err := tx.PrepareContext(ctx, `
@@ -58,6 +69,38 @@ func (db Database) CreateOrderWithWithdraws(ctx context.Context, userID int, o m
 	return nil
 }
 
+func (db Database) GetNewOrders(ctx context.Context) ([]models.Order, error) {
+	orders := make([]models.Order, 0)
+
+	query := psql.Select("id", "order_number", "status").From("orders").
+		Where(sq.Eq{"status": "NEW"}).
+		RunWith(db.cursor).
+		PlaceholderFormat(sq.Dollar)
+
+	rows, err := query.QueryContext(ctx)
+	if err != nil {
+		return orders, err
+	}
+
+	if rows.Err() != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return orders, er.ErrOrdersNotFound
+		}
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var order models.Order
+		err = rows.Scan(&order.ID, &order.Number, &order.Status)
+		if err != nil {
+			return orders, err
+		}
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}
+
 func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, error) {
 
 	orders := make([]models.Order, 0)
@@ -73,7 +116,7 @@ func (db Database) GetOrders(ctx context.Context, userID int) ([]models.Order, e
 		return orders, err
 	}
 
-	if rows.Err() == nil {
+	if rows.Err() != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			return orders, er.ErrOrdersNotFound
 		}
@@ -155,30 +198,6 @@ func (db Database) getOrderID(userID int, orderNumber int64) (int, error) {
 		return id, err
 	}
 	return id, nil
-}
-
-func (db Database) checkUserBalance(userID int, amount int) error {
-	var totalBalance sql.NullFloat64
-
-	// select sum(amount) from transactions t where user_id = 1
-	query := psql.Select("sum(amount)").From("transactions").Where(sq.Eq{
-		"user_id": userID,
-	}).RunWith(db.cursor).PlaceholderFormat(sq.Dollar)
-
-	fmt.Println(query.ToSql())
-
-	if err := query.QueryRow().Scan(&totalBalance); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return er.ErrCannotFindTransactions
-		}
-		return err
-	}
-	fmt.Println(totalBalance.Float64 < float64(amount))
-	if !totalBalance.Valid || totalBalance.Float64 < float64(amount) {
-		return errors.New("user balance too low")
-	}
-
-	return nil
 }
 
 func (db Database) GetWithdraws(ctx context.Context, userID int) ([]models.Withdraw, error) {

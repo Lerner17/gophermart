@@ -1,18 +1,24 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/Lerner17/gophermart/internal/auth"
 	"github.com/Lerner17/gophermart/internal/config"
+	"github.com/Lerner17/gophermart/internal/consumer"
 	"github.com/Lerner17/gophermart/internal/db"
 	"github.com/Lerner17/gophermart/internal/handlers"
 	"github.com/Lerner17/gophermart/internal/models"
+	"github.com/Lerner17/gophermart/internal/queue"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -113,6 +119,8 @@ func main() {
 	parsArgs(cfg)
 	fmt.Println(cfg)
 	e := echo.New()
+	e.Use(middleware.Recover())
+
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	db := db.GetDB()
@@ -121,7 +129,7 @@ func main() {
 	authGroup := e.Group("")
 	authGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:                  &models.JwtCustomClaims{},
-		SigningKey:              []byte(auth.GetJWTSecret()),
+		SigningKey:              []byte(cfg.JWTSecretKey),
 		TokenLookup:             "cookie:access-token",
 		ErrorHandlerWithContext: auth.JWTErrorChecker,
 	}))
@@ -136,5 +144,47 @@ func main() {
 	authGroup.POST("/api/user/balance/withdraw", handlers.WithdrawHandler(db))
 	authGroup.GET("/api/user/withdrawals", handlers.GetWithdrawListHandler(db))
 
-	e.Logger.Fatal(e.Start(cfg.ServerAddress))
+	orders, err := RestoreQueue(db)
+	if err != nil {
+		e.Logger.Infof("Could not restore orders queue dump: %v", err)
+	} else {
+		queue.FullfilQueue(orders)
+	}
+
+	go func() {
+		if err := e.Start(cfg.ServerAddress); err != nil {
+			e.Logger.Info("shutting down the server")
+		}
+	}()
+
+	go func() {
+		consumer.ProcessOrderBounce(e.Logger, db)
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	e.Logger.Info("Received an interrupt, stopping gophermart…")
+
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
+}
+
+type DBRestorer interface {
+	GetNewOrders(context.Context) ([]models.Order, error)
+}
+
+func RestoreQueue(db DBRestorer) ([]models.Order, error) {
+
+	ctx := context.Background()
+
+	results, err := db.GetNewOrders(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	return results, nil
 }
